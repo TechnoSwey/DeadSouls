@@ -1,0 +1,1829 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
+<title>Мёртвые души 2.0 — Похождения Чичикова</title>
+<style>
+  :root{
+    --bg:#0e0b0a;
+    --panel:#1a1411;
+    --panel2:#241c17;
+    --ink:#f6ead7;
+    --muted:#c9b79f;
+    --gold:#c9a45b;
+    --red:#9d3d33;
+    --green:#6f8d56;
+    --blue:#6d879d;
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;
+    background:radial-gradient(circle at top, #2a201b 0, #130f0d 45%, #090807 100%);
+    color:var(--ink);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    height:100%;
+    overflow:hidden;
+    touch-action: manipulation;
+  }
+  #gameWrap{
+    width:100vw;
+    height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:12px;
+  }
+  #frame{
+    width:min(1280px, 100vw - 24px);
+    height:min(760px, 100vh - 24px);
+    border:1px solid rgba(255,255,255,.08);
+    background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+    box-shadow:var(--shadow);
+    border-radius:18px;
+    overflow:hidden;
+    position:relative;
+  }
+  canvas{
+    width:100%;
+    height:100%;
+    display:block;
+    background:
+      radial-gradient(circle at 50% 25%, rgba(255,236,199,.06), transparent 30%),
+      linear-gradient(180deg, #2a221d 0%, #1b1613 30%, #15110f 100%);
+  }
+  #uiTop{
+    position:absolute;
+    top:10px; left:10px; right:10px;
+    display:flex; gap:10px; flex-wrap:wrap;
+    pointer-events:none;
+    z-index:5;
+  }
+  .hud{
+    pointer-events:auto;
+    background:rgba(18,14,12,.82);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:12px;
+    padding:10px 12px;
+    backdrop-filter:blur(5px);
+    box-shadow:var(--shadow);
+  }
+  #stats{display:flex; gap:14px; align-items:center; flex-wrap:wrap}
+  .stat b{color:var(--gold)}
+  #quest{
+    margin-left:auto;
+    max-width:420px;
+    min-width:260px;
+  }
+  #dialogue{
+    position:absolute;
+    left:20px;
+    right:20px;
+    bottom:20px;
+    min-height:145px;
+    background:linear-gradient(180deg, rgba(27,20,17,.96), rgba(18,14,12,.96));
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    padding:14px 16px 16px;
+    pointer-events:auto;
+    z-index:15;
+    transition: opacity 0.2s ease;
+  }
+  #dialogue.hidden{
+    display: none;
+  }
+  #speaker{
+    color:var(--gold);
+    font-weight:700;
+    margin-bottom:8px;
+    letter-spacing:.2px;
+  }
+  #text{
+    line-height:1.45;
+    min-height:58px;
+    color:var(--ink);
+    white-space:pre-line;
+    font-size:14px;
+  }
+  #choices{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:12px;
+  }
+  button.choice, .smallBtn{
+    border:none;
+    border-radius:10px;
+    padding:10px 14px;
+    cursor:pointer;
+    background:linear-gradient(180deg, #4b392e, #34271f);
+    color:var(--ink);
+    border:1px solid rgba(255,255,255,.08);
+    transition:.15s transform, .15s filter, .15s background;
+    font-weight:600;
+    font-size:14px;
+    touch-action: manipulation;
+  }
+  button.choice:active, .smallBtn:active{
+    transform:scale(0.96);
+  }
+  .accent{background:linear-gradient(180deg, #8e6c32, #694f24)}
+  .danger{background:linear-gradient(180deg, #8f443a, #693029)}
+  .good{background:linear-gradient(180deg, #66804f, #4d633d)}
+  #overlay{
+    position:absolute;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    background:rgba(10,8,7,.85);
+    backdrop-filter:blur(4px);
+    z-index:20;
+  }
+  .panel{
+    width:min(900px, calc(100% - 28px));
+    max-height:calc(100% - 30px);
+    overflow:auto;
+    background:linear-gradient(180deg, #211915, #16110f);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;
+    box-shadow:var(--shadow);
+    padding:18px;
+  }
+  .panel h2,.panel h3{margin:0 0 10px;color:var(--gold)}
+  .panel p{color:var(--muted); line-height:1.45}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+  .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  .inventory{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+    gap:10px;
+    margin-top:12px;
+  }
+  .card{
+    background:#1f1814;
+    border:1px solid rgba(255,255,255,.06);
+    border-radius:14px;
+    padding:12px;
+  }
+  .card strong{color:var(--gold)}
+  .miniArea{
+    margin-top:14px;
+    background:#120f0d;
+    border:1px solid rgba(255,255,255,.07);
+    border-radius:16px;
+    padding:14px;
+  }
+  .center{text-align:center}
+  .meter{
+    height:12px;
+    border-radius:999px;
+    background:#2c241f;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.06);
+  }
+  .meter > span{
+    display:block;
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg, #7f5c2f, #c9a45b);
+  }
+  .list{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .line{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    background:#1d1713;
+    border-radius:10px;
+    padding:10px 12px;
+    border:1px solid rgba(255,255,255,.05);
+  }
+  .kbd{
+    display:inline-block;
+    padding:2px 7px;
+    border-radius:7px;
+    background:#2d241f;
+    border:1px solid rgba(255,255,255,.08);
+    font-size:12px;
+    color:#f1dcb8;
+  }
+  #footerHint{
+    position:absolute;
+    right:14px; bottom:174px;
+    background:rgba(18,14,12,.75);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:10px;
+    padding:7px 10px;
+    color:var(--muted);
+    font-size:13px;
+    box-shadow:var(--shadow);
+    pointer-events:none;
+    z-index:5;
+  }
+  
+  /* Сенсорные кнопки управления */
+  #touchControls{
+    position:absolute;
+    left:20px;
+    bottom:20px;
+    display:flex;
+    gap:12px;
+    z-index:15;
+    pointer-events:auto;
+  }
+  .touch-btn{
+    width:70px;
+    height:70px;
+    border-radius:50%;
+    background:rgba(30,24,20,.85);
+    backdrop-filter:blur(8px);
+    border:1.5px solid rgba(255,255,255,.15);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:32px;
+    font-weight:bold;
+    color:var(--gold);
+    cursor:pointer;
+    touch-action: manipulation;
+    transition:0.05s linear;
+    box-shadow:0 4px 12px rgba(0,0,0,.3);
+  }
+  .touch-btn:active{
+    transform:scale(0.92);
+    background:rgba(50,40,34,.9);
+    border-color:var(--gold);
+  }
+  .touch-row{
+    display:flex;
+    gap:12px;
+    flex-direction:column;
+  }
+  .touch-row.middle{
+    flex-direction:row;
+    justify-content:center;
+  }
+  @media (min-width: 768px){
+    .touch-btn{width:60px;height:60px;font-size:28px;}
+    #touchControls{left:15px;bottom:15px;}
+  }
+  @media (max-width: 600px){
+    .touch-btn{width:55px;height:55px;font-size:26px;}
+    #touchControls{left:10px;bottom:10px;gap:8px;}
+    .touch-row{gap:8px;}
+  }
+  
+  .hidden{display:none!important}
+  @media (max-width:900px){
+    #dialogue{min-height:175px}
+    .grid2{grid-template-columns:1fr}
+    #quest{max-width:none; width:100%}
+    #footerHint{bottom:204px; left:14px; right:auto}
+    #footerHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="gameWrap">
+  <div id="frame">
+    <canvas id="game" width="1280" height="760"></canvas>
+
+    <div id="uiTop">
+      <div class="hud" id="stats"></div>
+      <div class="hud" id="quest"></div>
+    </div>
+
+    <div id="footerHint">Управление: <span class="kbd">WASD / ←↑→↓</span> или сенсорные кнопки</div>
+
+    <!-- Сенсорные кнопки управления -->
+    <div id="touchControls">
+      <div class="touch-row">
+        <div class="touch-btn" data-dir="up">▲</div>
+      </div>
+      <div class="touch-row middle">
+        <div class="touch-btn" data-dir="left">◀</div>
+        <div class="touch-btn" data-dir="down">▼</div>
+        <div class="touch-btn" data-dir="right">▶</div>
+      </div>
+    </div>
+
+    <div id="dialogue" class="hidden">
+      <div id="speaker">Повествователь</div>
+      <div id="text">Загрузка...</div>
+      <div id="choices"></div>
+    </div>
+
+    <div id="overlay"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const overlay = document.getElementById('overlay');
+  const dialogueDiv = document.getElementById('dialogue');
+  const speakerEl = document.getElementById('speaker');
+  const textEl = document.getElementById('text');
+  const choicesEl = document.getElementById('choices');
+  const statsEl = document.getElementById('stats');
+  const questEl = document.getElementById('quest');
+
+  const W = canvas.width, H = canvas.height;
+  const TAU = Math.PI * 2;
+
+  // Touch controls
+  const touchDir = { up: false, down: false, left: false, right: false };
+  
+  const touchBtns = document.querySelectorAll('.touch-btn');
+  touchBtns.forEach(btn => {
+    const dir = btn.dataset.dir;
+    
+    const startTouch = (e) => {
+      e.preventDefault();
+      if(dir === 'up') touchDir.up = true;
+      if(dir === 'down') touchDir.down = true;
+      if(dir === 'left') touchDir.left = true;
+      if(dir === 'right') touchDir.right = true;
+      btn.style.transform = 'scale(0.92)';
+    };
+    
+    const endTouch = (e) => {
+      e.preventDefault();
+      if(dir === 'up') touchDir.up = false;
+      if(dir === 'down') touchDir.down = false;
+      if(dir === 'left') touchDir.left = false;
+      if(dir === 'right') touchDir.right = false;
+      btn.style.transform = '';
+    };
+    
+    btn.addEventListener('touchstart', startTouch, { passive: false });
+    btn.addEventListener('touchend', endTouch);
+    btn.addEventListener('touchcancel', endTouch);
+    btn.addEventListener('mousedown', startTouch);
+    btn.addEventListener('mouseup', endTouch);
+    btn.addEventListener('mouseleave', endTouch);
+  });
+
+  // Keyboard
+  const keys = {};
+  addEventListener('keydown', e => {
+    const key = e.key.toLowerCase();
+    keys[key] = true;
+    if(key === 'w' || key === 'arrowup') touchDir.up = true;
+    if(key === 's' || key === 'arrowdown') touchDir.down = true;
+    if(key === 'a' || key === 'arrowleft') touchDir.left = true;
+    if(key === 'd' || key === 'arrowright') touchDir.right = true;
+  });
+  addEventListener('keyup', e => {
+    const key = e.key.toLowerCase();
+    keys[key] = false;
+    if(key === 'w' || key === 'arrowup') touchDir.up = false;
+    if(key === 's' || key === 'arrowdown') touchDir.down = false;
+    if(key === 'a' || key === 'arrowleft') touchDir.left = false;
+    if(key === 'd' || key === 'arrowright') touchDir.right = false;
+  });
+
+  const game = {
+    scene: 'title',
+    time: 0,
+    time2: 0,
+    visited: {},
+    souls: 0,
+    papers: 0,
+    suspicion: 0,
+    mood: 50,
+    currentNode: null,
+    dialogueBusy: false,
+    endingType: '',
+    player: {x:220, y:380, speed:185},
+    carriage: {x:220, y:380, angle:0},
+    money: 100,
+    registryDone: false,
+    ballDone: false,
+    chase: false,
+    nozdryovWon: false,
+    soulLedger: [],
+    unlockedNodes: ['city'],
+    worldNodes: {
+      city:{x:220,y:380,name:'Город N', type:'city'},
+      manilov:{x:470,y:220,name:'Маниловка', type:'estate'},
+      korobochka:{x:720,y:170,name:'Коробочка', type:'estate'},
+      nozdryov:{x:915,y:320,name:'Ноздрёв', type:'estate'},
+      sobakevich:{x:800,y:535,name:'Собакевич', type:'estate'},
+      plyushkin:{x:500,y:590,name:'Плюшкин', type:'estate'},
+      chamber:{x:330,y:170,name:'Палата', type:'town'},
+      ball:{x:140,y:180,name:'Губернатор', type:'town'}
+    }
+  };
+
+  const colors = {
+    road:'#7a6248', road2:'#5d4938', field:'#64553f', forest:'#2e4631', water:'#334c63',
+    house:'#b89462', roof:'#7a4938', city:'#c1a16f', glow:'#f0d29a'
+  };
+
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function dist(ax,ay,bx,by){ return Math.hypot(ax-bx, ay-by); }
+  function rand(a=1,b=0){ return b + Math.random()*(a-b); }
+  function choice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+  function updateHUD(){
+    statsEl.innerHTML = `
+      <div class="stat">Души: <b>${game.souls}</b></div>
+      <div class="stat">Подозрение: <b>${Math.round(game.suspicion)}</b>/100</div>
+      <div class="stat">Бумаги: <b>${game.papers}</b>/5</div>
+      <div class="stat">Капитал: <b>${game.money}</b> руб.</div>
+      <div class="stat">Настроение общества: <b>${Math.round(game.mood)}</b>/100</div>
+    `;
+    let quest = 'Пройдите весь путь Чичикова: знакомства, поездки по помещикам, оформление купчих, бал, слухи и отъезд.';
+    if (game.scene === 'world') quest = 'Путешествуйте по губернии. Посетите всех помещиков и добудьте у каждого мёртвые души.';
+    if (game.souls >= 1 && !game.registryDone) quest = 'Вернитесь в город и оформите бумаги в палате.';
+    if (game.registryDone && !game.ballDone) quest = 'Посетите губернаторский бал. Там начнёт сгущаться атмосфера подозрений и слухов.';
+    if (game.ballDone && !game.chase) quest = 'Слухи разрастаются. Вам нужно выбраться из города.';
+    if (game.scene === 'ending') quest = 'История завершена. Можно переиграть и пройти путь заново.';
+    questEl.innerHTML = `<div><b style="color:var(--gold)">Задача</b></div><div style="margin-top:6px;color:var(--muted)">${quest}</div>`;
+  }
+
+  function showDialogue(speaker, text, choices=[]){
+    speakerEl.textContent = speaker;
+    textEl.textContent = text;
+    choicesEl.innerHTML = '';
+    choices.forEach(c=>{
+      const b = document.createElement('button');
+      b.className = 'choice ' + (c.className || '');
+      b.textContent = c.label;
+      b.onclick = () => {
+        if(c.onClick) c.onClick();
+      };
+      choicesEl.appendChild(b);
+    });
+    dialogueDiv.classList.remove('hidden');
+  }
+
+  function hideDialogue(){
+    dialogueDiv.classList.add('hidden');
+    speakerEl.textContent = '';
+    textEl.textContent = '';
+    choicesEl.innerHTML = '';
+  }
+
+  function showOverlay(html){
+    overlay.style.display = 'flex';
+    overlay.innerHTML = `<div class="panel">${html}</div>`;
+  }
+  function hideOverlay(){
+    overlay.style.display = 'none';
+    overlay.innerHTML = '';
+  }
+
+  function startTitle(){
+    game.scene = 'title';
+    game.dialogueBusy = false;
+    hideDialogue();
+    showDialogue(
+      'Повествователь',
+      'Перед вами — «Мёртвые души 2.0»: сюжетная 2D-игра от лица Павла Ивановича Чичикова.\n\nВы прибудете в губернский город N, обворожите чиновников, отправитесь по пыльным дорогам к помещикам, будете торговаться, играть в шашки, распутывать завалы старого хлама, оформлять бумаги, кружиться на балу и, наконец, спасаться от слухов и разоблачения.\n\nЭто не просто череда визитов — это путешествие по атмосфере поэмы.',
+      [
+        {label:'Начать путешествие', className:'accent', onClick: startIntro},
+        {label:'Об игре', onClick: showHelp}
+      ]
+    );
+    updateHUD();
+  }
+
+  function showHelp(){
+    showOverlay(`
+      <h2>Как играть</h2>
+      <p>Это цельная сюжетная игра по «Мёртвым душам». Основная карта — вид сверху. Вы управляете бричкой Чичикова и посещаете ключевые места поэмы.</p>
+      <div class="grid2">
+        <div class="card"><strong>Основной цикл</strong><p>Город → знакомства → поездки к помещикам → мини-игры и сделки → оформление в палате → бал → слухи → бегство.</p></div>
+        <div class="card"><strong>Управление</strong><p><span class="kbd">WASD</span> или стрелки для движения в режиме карты. На телефоне — сенсорные кнопки внизу слева.</p></div>
+      </div>
+      <div class="inventory">
+        <div class="card"><strong>Манилов</strong><br>Нужно собрать сладостные мечты в цельную «воздушную» схему разговора.</div>
+        <div class="card"><strong>Коробочка</strong><br>Нужно подобрать верные доводы, чтобы хозяйка перестала бояться убытка.</div>
+        <div class="card"><strong>Ноздрёв</strong><br>Шашки. Честной игры не ждите.</div>
+        <div class="card"><strong>Собакевич</strong><br>Выберите самых «крепких» покойников из списка и выдержите напор хозяина.</div>
+        <div class="card"><strong>Плюшкин</strong><br>Разыщите ревизские записи среди хлама и лоскутьев.</div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="smallBtn accent" onclick="document.getElementById('overlay').style.display='none'">Понятно</button>
+      </div>
+    `);
+  }
+
+  function startIntro(){
+    game.scene = 'intro';
+    game.visited = {};
+    game.souls = 0;
+    game.papers = 0;
+    game.suspicion = 0;
+    game.mood = 50;
+    game.money = 100;
+    game.registryDone = false;
+    game.ballDone = false;
+    game.chase = false;
+    game.nozdryovWon = false;
+    game.soulLedger = [];
+    game.unlockedNodes = ['city'];
+    game.currentNode = null;
+    game.dialogueBusy = false;
+    game.carriage.x = 220; game.carriage.y = 380;
+    game.carriage.angle = 0;
+    updateHUD();
+
+    hideDialogue();
+    showDialogue(
+      'Повествователь',
+      'В город N въезжает не красавец, но и не дурной наружности господин — не слишком толст, не слишком тонок; нельзя сказать, чтобы стар, однако ж и не так чтобы слишком молод. Это Павел Иванович Чичиков.\n\nЕго бричка катит по пыльной улице к гостинице. Вежливость его аккуратна, речь — мягка, расчёт — скрытен.',
+      [{label:'Продолжить', className:'accent', onClick: intro2}]
+    );
+  }
+
+  function intro2(){
+    showDialogue(
+      'Чичиков',
+      'Прежде всего — общество. Нужно показаться приятным человеком, попасть в дома, расположить к себе чиновников. Всё должно идти чинно, благообразно, с умеренной улыбкой и без лишней поспешности.',
+      [{label:'Навестить городское общество', className:'accent', onClick: intro3}]
+    );
+  }
+
+  function intro3(){
+    game.mood += 10;
+    game.unlockedNodes = ['city','manilov','korobochka','nozdryov','sobakevich','plyushkin','chamber','ball'];
+    showDialogue(
+      'Повествователь',
+      'Чичиков мастерски обходит губернатора, вице-губернатора, прокурора, полицмейстера и прочих сильных мира губернского. Он умеет сказать каждому именно то, что тому приятно.\n\nВечера проходят удачно. Приглашения посыпались. Имя нового гостя произносится всё чаще.',
+      [{label:'Выехать в губернию', className:'good', onClick: () => {
+        game.scene = 'world';
+        game.dialogueBusy = false;
+        hideDialogue();
+        updateHUD();
+      }}]
+    );
+    updateHUD();
+  }
+
+  function worldNodeAvailable(id){
+    return game.unlockedNodes.includes(id);
+  }
+
+  const roads = [
+    ['city','manilov'], ['manilov','korobochka'], ['korobochka','nozdryov'], ['nozdryov','sobakevich'],
+    ['sobakevich','plyushkin'], ['plyushkin','city'], ['city','chamber'], ['city','ball']
+  ];
+
+  function drawWorld(){
+    drawBackground();
+    drawMapDecor();
+
+    ctx.save();
+    ctx.lineWidth = 18;
+    ctx.lineCap = 'round';
+    roads.forEach(([a,b])=>{
+      const A = game.worldNodes[a], B = game.worldNodes[b];
+      if(A && B) {
+        ctx.strokeStyle = colors.road2;
+        ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+        ctx.lineWidth = 10;
+        ctx.strokeStyle = colors.road;
+        ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+        ctx.lineWidth = 18;
+      }
+    });
+
+    Object.entries(game.worldNodes).forEach(([id,n])=>{
+      const avail = worldNodeAvailable(id);
+      const pulse = 0.5 + 0.5 * Math.sin(game.time2 + n.x*0.01);
+      ctx.save();
+      if (avail) {
+        ctx.shadowBlur = 20 + pulse*10;
+        ctx.shadowColor = 'rgba(240,210,154,.35)';
+      }
+      ctx.fillStyle = id === 'city' ? colors.city : (n.type === 'estate' ? colors.house : '#8f7755');
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, id==='city'?26:20, 0, TAU);
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = game.currentNode===id ? '#fff4d2' : '#3d2c22';
+      ctx.stroke();
+
+      if (game.visited[id]) {
+        ctx.fillStyle = 'rgba(30,20,10,.85)';
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, 8, 0, TAU);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#f6ead7';
+      ctx.font = '16px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(n.name, n.x, n.y - 30);
+      ctx.restore();
+    });
+
+    drawCarriage(game.carriage.x, game.carriage.y, game.carriage.angle);
+    ctx.restore();
+  }
+
+  function drawBackground(){
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, '#5c513f');
+    grad.addColorStop(.45, '#534632');
+    grad.addColorStop(1, '#3d3428');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,W,H);
+  }
+
+  function drawMapDecor(){
+    for(let i=0;i<24;i++){
+      ctx.fillStyle = i%2 ? 'rgba(123,105,72,.25)' : 'rgba(82,73,52,.20)';
+      const x = (i*213) % W;
+      const y = (i*119) % H;
+      ctx.beginPath();
+      ctx.ellipse(x, y, 90+((i*17)%60), 50+((i*13)%35), 0.2*i, 0, TAU);
+      ctx.fill();
+    }
+    for(let i=0;i<36;i++){
+      const x = ((i*173)+200) % W;
+      const y = ((i*87)+90) % H;
+      tree(x,y, 18 + (i%4)*5);
+    }
+    pond(1020,140,90,50);
+    pond(160,610,110,55);
+  }
+
+  function tree(x,y,r){
+    ctx.save();
+    ctx.fillStyle = '#473726';
+    ctx.fillRect(x-4,y,8,16);
+    ctx.fillStyle = '#2f4a32';
+    ctx.beginPath();
+    ctx.arc(x,y,r,0,TAU);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.04)';
+    ctx.beginPath();
+    ctx.arc(x-r*0.2,y-r*0.2,r*0.45,0,TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function pond(x,y,rx,ry){
+    ctx.save();
+    ctx.fillStyle = 'rgba(68,96,122,.6)';
+    ctx.beginPath();
+    ctx.ellipse(x,y,rx,ry,0,0,TAU);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.09)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawCarriage(x,y,a){
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(a);
+    ctx.globalAlpha = .22;
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(0,16,28,10,0,0,TAU); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#1f1714'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(-17,12,8,0,TAU); ctx.stroke();
+    ctx.beginPath(); ctx.arc(17,12,8,0,TAU); ctx.stroke();
+    ctx.fillStyle = '#5f3f28';
+    roundRect(-24,-8,48,22,8,true,false);
+    ctx.fillStyle = '#9c7a52';
+    roundRect(-18,-14,36,12,6,true,false);
+    ctx.fillStyle = '#4a3426';
+    roundRect(26,-5,26,12,5,true,false);
+    ctx.beginPath(); ctx.arc(54,-2,7,0,TAU); ctx.fill();
+    ctx.strokeStyle = '#2a1c14'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(24,0); ctx.lineTo(14,0);
+    ctx.stroke();
+    ctx.fillStyle = '#d8cab1';
+    ctx.beginPath(); ctx.arc(-2,-10,5,0,TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  function roundRect(x,y,w,h,r,fill,stroke){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.lineTo(x+w-r,y);
+    ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r);
+    ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h);
+    ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r);
+    ctx.quadraticCurveTo(x,y,x+r,y);
+    ctx.closePath();
+    if(fill) ctx.fill();
+    if(stroke) ctx.stroke();
+  }
+
+  function updateWorld(dt){
+    let vx = 0, vy = 0;
+    
+    if(touchDir.up) vy -= 1;
+    if(touchDir.down) vy += 1;
+    if(touchDir.left) vx -= 1;
+    if(touchDir.right) vx += 1;
+    
+    if(vx || vy){
+      const len = Math.hypot(vx,vy);
+      vx/=len; vy/=len;
+      game.carriage.x += vx * game.player.speed * dt;
+      game.carriage.y += vy * game.player.speed * dt;
+      game.carriage.x = clamp(game.carriage.x, 30, W-30);
+      game.carriage.y = clamp(game.carriage.y, 30, H-30);
+      game.carriage.angle = Math.atan2(vy,vx);
+    }
+
+    let oldNode = game.currentNode;
+    let newNode = null;
+    for(const [id,n] of Object.entries(game.worldNodes)){
+      if(!worldNodeAvailable(id)) continue;
+      if(dist(game.carriage.x, game.carriage.y, n.x, n.y) < 28){
+        newNode = id;
+        break;
+      }
+    }
+    
+    if(newNode !== oldNode){
+      game.currentNode = newNode;
+      
+      if(newNode && !game.dialogueBusy){
+        if(newNode === 'city'){
+          game.dialogueBusy = true;
+          showDialogue('Город N',
+            'Вы в губернском городе. Здесь можно перевести дух, а после добычи душ — оформить бумаги и посетить бал.',
+            [
+              {label:'Осмотреть город', onClick: () => { 
+                game.dialogueBusy = false; 
+                hideDialogue();
+              }},
+              ...(game.souls>0 && !game.registryDone ? [{label:'В палату', className:'accent', onClick: () => { game.dialogueBusy = false; hideDialogue(); openChamberMini(); }}] : []),
+              ...(game.registryDone && !game.ballDone ? [{label:'На бал к губернатору', className:'good', onClick: () => { game.dialogueBusy = false; hideDialogue(); openBallScene(); }}] : [])
+            ]
+          );
+        } else if (newNode === 'manilov' && !game.visited.manilov) {
+          triggerManilov();
+        } else if (newNode === 'korobochka' && !game.visited.korobochka) {
+          triggerKorobochka();
+        } else if (newNode === 'nozdryov' && !game.visited.nozdryov) {
+          triggerNozdryov();
+        } else if (newNode === 'sobakevich' && !game.visited.sobakevich) {
+          triggerSobakevich();
+        } else if (newNode === 'plyushkin' && !game.visited.plyushkin) {
+          triggerPlyushkin();
+        } else if (newNode === 'chamber' && game.souls>0 && !game.registryDone && !game.dialogueBusy) {
+          game.dialogueBusy = true;
+          openChamberMini();
+        } else if (newNode === 'ball' && game.registryDone && !game.ballDone && !game.dialogueBusy) {
+          game.dialogueBusy = true;
+          openBallScene();
+        }
+      }
+    }
+
+    updateHUD();
+  }
+
+  function gainSouls(owner, count, note=''){
+    game.souls += count;
+    game.soulLedger.push({owner,count,note});
+    game.papers = Math.min(game.papers + 1, 5);
+    game.money += Math.floor(count * 1.7);
+    updateHUD();
+  }
+
+  function triggerManilov(){
+    game.dialogueBusy = true;
+    showDialogue(
+      'Повествователь',
+      'Дорога к Манилову мягко стелется между холмов. Воздух кажется сладковатым, а в самой усадьбе всё дышит не столько жизнью, сколько мечтой о приятной жизни.\n\nМанилов любезен, растекается в любезностях и уже готов утонуть в пустых проектах.',
+      [{label:'Начать беседу', className:'accent', onClick: openManilovMini}]
+    );
+  }
+
+  function openManilovMini(){
+    hideOverlay();
+    hideDialogue();
+    showOverlay(`
+      <h2>Манилов — мини-игра «Сладостные проекты»</h2>
+      <p>Чтобы подвести разговор к продаже мёртвых душ, нужно выстроить беседу в маниловском духе: воздушно, приятно, мечтательно и без грубой прямоты.</p>
+      <div class="miniArea">
+        <div id="maniTarget" class="list"></div>
+        <div style="height:10px"></div>
+        <div id="maniOptions" class="row"></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="smallBtn" id="maniReset">Сначала</button>
+        <button class="smallBtn accent" id="maniSubmit">Предложить сделку</button>
+      </div>
+    `);
+    const target = document.getElementById('maniTarget');
+    const options = document.getElementById('maniOptions');
+    const reset = document.getElementById('maniReset');
+    const submit = document.getElementById('maniSubmit');
+
+    const correct = [
+      'Похвалить приятность усадьбы',
+      'Помечтать о каменном мосте с лавками',
+      'Сказать о дружбе как о высшем благе',
+      'Ненароком перевести речь к ревизским душам'
+    ];
+    const pool = [...correct, 'Сразу потребовать список умерших', 'Пожаловаться на пыльную дорогу', 'Говорить только о цене', 'Спросить о выгоде с сухой деловитостью'];
+    let picked = [];
+
+    function render(){
+      target.innerHTML = picked.map((x,i)=>`<div class="line"><span>${i+1}. ${x}</span><button class="smallBtn" data-i="${i}">Убрать</button></div>`).join('') || `<p>Соберите 4 хода разговора.</p>`;
+      options.innerHTML = '';
+      pool.forEach(opt=>{
+        const b = document.createElement('button');
+        b.className = 'smallBtn';
+        b.textContent = opt;
+        b.onclick = ()=>{ if(picked.length<4) picked.push(opt); render(); };
+        options.appendChild(b);
+      });
+      target.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{ picked.splice(+b.dataset.i,1); render(); });
+    }
+    render();
+
+    reset.onclick = ()=>{ picked=[]; render(); };
+    submit.onclick = ()=>{
+      const ok = JSON.stringify(picked) === JSON.stringify(correct);
+      hideOverlay();
+      if(ok){
+        game.visited.manilov = true;
+        gainSouls('Манилов', 18, 'Отдал почти даром, из дружбы и приятности.');
+        game.suspicion += 2;
+        showDialogue(
+          'Манилов',
+          'Для вас, любезнейший Павел Иванович, — с величайшим удовольствием! Какие пустяки! Если это может доставить вам приятность, то я совершенно счастлив.',
+          [{label:'Покинуть усадьбу', className:'good', onClick: ()=>{ game.dialogueBusy=false; hideDialogue(); }}]
+        );
+      } else {
+        game.suspicion += 4;
+        showDialogue(
+          'Манилов',
+          'Экая, впрочем, странность вашего предложения... Но так как я нахожу вас человеком весьма приятным, то, пожалуй, и на сие соглашусь — хотя мысль у меня несколько затуманилась.',
+          [{label:'Уехать с душами', className:'accent', onClick: ()=>{ game.visited.manilov=true; gainSouls('Манилов', 11, 'Получено после путаной, но всё же удачной беседы.'); game.dialogueBusy=false; hideDialogue(); }}]
+        );
+      }
+      updateHUD();
+    };
+  }
+
+  function triggerKorobochka(){
+    game.dialogueBusy = true;
+    showDialogue(
+      'Повествователь',
+      'К Коробочке ведёт дорога попроще и тесней, будто и сама боится широких замыслов. Хозяйка осторожна, подозрительна, всё примеряет на домашнюю выгоду и всего опасается.',
+      [{label:'Торговаться', className:'accent', onClick: openKorobochkaMini}]
+    );
+  }
+
+  function openKorobochkaMini(){
+    hideOverlay();
+    hideDialogue();
+    showOverlay(`
+      <h2>Коробочка — мини-игра «Убедить хозяйку»</h2>
+      <p>Коробочка боится, как бы не продешевить. Выберите <b>три</b> самых подходящих довода, чтобы она согласилась отдать мёртвые души.</p>
+      <div class="miniArea" id="koroArea"></div>
+      <div class="row" style="margin-top:14px">
+        <button class="smallBtn accent" id="koroDone">Завершить торг</button>
+      </div>
+    `);
+    const area = document.getElementById('koroArea');
+    const done = document.getElementById('koroDone');
+    const opts = [
+      {t:'За них всё равно придётся платить подать', good:true},
+      {t:'Вы избавитесь от лишней записи в ревизии', good:true},
+      {t:'Это дело законное и с бумагами', good:true},
+      {t:'Я заплачу втрое больше рыночной цены', good:false},
+      {t:'У меня связи во всех столицах', good:false},
+      {t:'Соседи уже всех продали', good:false},
+      {t:'Это нужно для украшения имения', good:false}
+    ];
+    let picked = new Set();
+    function render(){
+      area.innerHTML = `<div class="row">` + opts.map((o,i)=>`
+        <button class="smallBtn ${picked.has(i)?'accent':''}" data-i="${i}">${o.t}</button>
+      `).join('') + `</div><p style="margin-top:10px">Выбрано: ${picked.size}/3</p>`;
+      area.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{
+        const i=+b.dataset.i;
+        if(picked.has(i)) picked.delete(i);
+        else if(picked.size<3) picked.add(i);
+        render();
+      });
+    }
+    render();
+    done.onclick = ()=>{
+      const sel = [...picked];
+      const score = sel.filter(i=>opts[i].good).length;
+      hideOverlay();
+      game.visited.korobochka = true;
+
+      if(score===3){
+        gainSouls('Коробочка', 22, 'Уступила после осторожного, но правильного убеждения.');
+        game.suspicion += 3;
+        showDialogue('Коробочка','Ну, коли законно, коли с бумагами... что ж, батюшка, пожалуй. Только бы мне не в убыток.',[
+          {label:'Забрать купчую', className:'good', onClick: ()=>{game.dialogueBusy=false; hideDialogue();}}
+        ]);
+      } else if(score===2){
+        gainSouls('Коробочка', 15, 'Согласилась нехотя и долго переспрашивала.');
+        game.suspicion += 6;
+        showDialogue('Коробочка','Странное дело, право... Всё как-то боязно. Ну да уж пусть будет по-вашему.',[
+          {label:'Уехать', className:'accent', onClick: ()=>{game.dialogueBusy=false; hideDialogue();}}
+        ]);
+      } else {
+        gainSouls('Коробочка', 8, 'Выторговано мало: хозяйка осталась подозрительна.');
+        game.suspicion += 12;
+        showDialogue('Коробочка','Нет, уж я, батюшка, того... я бы сперва поспрошала, почём нынче такие души ходят. Но кое-что, так и быть, запишем.',[
+          {label:'Уехать с осадком', className:'danger', onClick: ()=>{game.dialogueBusy=false; hideDialogue();}}
+        ]);
+      }
+      updateHUD();
+    };
+  }
+
+  // НОРМАЛЬНЫЕ ШАШКИ 8x8 С ПРАВИЛАМИ
+  function triggerNozdryov(){
+    game.dialogueBusy = true;
+    showDialogue(
+      'Повествователь',
+      'У Ноздрёва всё шумно, сбивчиво, напористо. Собаки, крики, преувеличения, хвастовство, карты, бутылки, нелепые предложения обмена — всё здесь в беспокойном вихре.\n\n"Сыграем в шашки?" — предлагает он с азартным блеском в глазах. "Проиграешь — заплатишь, выиграешь — получишь мёртвые души!"',
+      [{label:'Сыграть в шашки', className:'danger', onClick: openCheckersGame}]
+    );
+  }
+
+  function openCheckersGame() {
+    hideOverlay();
+    hideDialogue();
+
+    // Создаём контейнер для игры 8x8
+    const boardSize = 480;
+    const cellSize = boardSize / 8;
+    
+    showOverlay(`
+      <h2>Шашки с Ноздрёвым</h2>
+      <p style="font-size:14px">Правила: обычные шашки. Простая шашка ходит вперёд по диагонали. Дамка ходит по любой диагонали. Бить обязательно!<br>
+      <strong>Вы играете светлыми (снизу)</strong>, Ноздрёв — тёмными (сверху).</p>
+      <div class="miniArea center">
+        <canvas id="checkersCanvas" width="${boardSize}" height="${boardSize}" style="background:#2a201b;border-radius:8px;border:2px solid var(--gold);max-width:100%;height:auto"></canvas>
+        <p id="checkersStatus" style="margin-top:10px;color:var(--gold)">Ваш ход</p>
+        <div class="row" style="justify-content:center;margin-top:10px">
+          <button class="smallBtn" id="checkersReset">Новая партия</button>
+          <button class="smallBtn accent" id="checkersExit">Сдаться и уйти</button>
+        </div>
+      </div>
+    `);
+
+    const boardCanvas = document.getElementById('checkersCanvas');
+    const boardCtx = boardCanvas.getContext('2d');
+    const statusEl = document.getElementById('checkersStatus');
+    
+    let board = Array(8).fill().map(() => Array(8).fill(null));
+    let currentPlayer = 'white'; // white - игрок (снизу), black - Ноздрёв (сверху)
+    let selectedRow = null, selectedCol = null;
+    let gameOver = false;
+    let mustCapture = false;
+    let captureMoves = [];
+    let whitePieceCount = 12, blackPieceCount = 12;
+    
+    // Инициализация доски
+    function initBoard() {
+      board = Array(8).fill().map(() => Array(8).fill(null));
+      // Белые (игрок) - снизу (ряды 5-7, но в классике белые снизу, чёрные сверху)
+      // Белые на клетках 5-7 рядов (индексы 5,6,7) на тёмных клетках
+      for (let row = 5; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          if ((row + col) % 2 === 1) {
+            board[row][col] = { type: 'man', color: 'white' };
+          }
+        }
+      }
+      // Чёрные (Ноздрёв) - сверху (ряды 0-2)
+      for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 8; col++) {
+          if ((row + col) % 2 === 1) {
+            board[row][col] = { type: 'man', color: 'black' };
+          }
+        }
+      }
+      whitePieceCount = 12;
+      blackPieceCount = 12;
+      currentPlayer = 'white';
+      selectedRow = null;
+      selectedCol = null;
+      mustCapture = false;
+      captureMoves = [];
+      gameOver = false;
+      updateStatus();
+      drawBoard();
+    }
+    
+    // Подсчёт фигур
+    function countPieces() {
+      let white = 0, black = 0;
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (board[r][c]) {
+            if (board[r][c].color === 'white') white++;
+            else black++;
+          }
+        }
+      }
+      whitePieceCount = white;
+      blackPieceCount = black;
+      return { white, black };
+    }
+    
+    // Проверка на дамку
+    function checkKing(row, col, piece) {
+      if (piece.type === 'king') return true;
+      if (piece.color === 'white' && row === 0) return true;
+      if (piece.color === 'black' && row === 7) return true;
+      return false;
+    }
+    
+    // Получение всех возможных ходов для фигуры
+    function getMoves(row, col, checkOnlyCaptures = false) {
+      const piece = board[row][col];
+      if (!piece) return [];
+      const moves = [];
+      const directions = [];
+      
+      if (piece.type === 'king') {
+        // Дамка ходит по всем 4 диагоналям
+        directions.push({ dr: -1, dc: -1 }, { dr: -1, dc: 1 }, { dr: 1, dc: -1 }, { dr: 1, dc: 1 });
+      } else if (piece.color === 'white') {
+        // Белые ходят вверх (уменьшение row)
+        directions.push({ dr: -1, dc: -1 }, { dr: -1, dc: 1 });
+      } else {
+        // Чёрные ходят вниз (увеличение row)
+        directions.push({ dr: 1, dc: -1 }, { dr: 1, dc: 1 });
+      }
+      
+      // Обычные ходы
+      if (!checkOnlyCaptures) {
+        for (const dir of directions) {
+          const newRow = row + dir.dr;
+          const newCol = col + dir.dc;
+          if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8 && !board[newRow][newCol]) {
+            moves.push({ row: newRow, col: newCol, captures: [] });
+          }
+        }
+      }
+      
+      // Ходы с взятием
+      for (const dir of directions) {
+        let newRow = row + dir.dr;
+        let newCol = col + dir.dc;
+        let jumpRow = newRow + dir.dr;
+        let jumpCol = newCol + dir.dc;
+        
+        if (jumpRow >= 0 && jumpRow < 8 && jumpCol >= 0 && jumpCol < 8) {
+          const targetPiece = board[newRow][newCol];
+          if (targetPiece && targetPiece.color !== piece.color && !board[jumpRow][jumpCol]) {
+            moves.push({ row: jumpRow, col: jumpCol, captures: [{ row: newRow, col: newCol }] });
+          }
+        }
+      }
+      
+      // Для дамки также нужно проверять дальние взятия через несколько клеток
+      if (piece.type === 'king') {
+        const longCaptures = [];
+        for (const dir of directions) {
+          let r = row + dir.dr;
+          let c = col + dir.dc;
+          let foundEnemy = false;
+          let enemyPos = null;
+          while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+            if (board[r][c]) {
+              if (!foundEnemy && board[r][c].color !== piece.color) {
+                foundEnemy = true;
+                enemyPos = { row: r, col: c };
+              } else {
+                break;
+              }
+            } else if (foundEnemy && !board[r][c]) {
+              longCaptures.push({ row: r, col: c, captures: [enemyPos] });
+              break;
+            } else {
+              break;
+            }
+            r += dir.dr;
+            c += dir.dc;
+          }
+        }
+        moves.push(...longCaptures);
+      }
+      
+      return moves;
+    }
+    
+    // Получение всех возможных ходов для текущего игрока
+    function getAllMovesForPlayer(color, onlyCaptures = false) {
+      const moves = [];
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (board[r][c] && board[r][c].color === color) {
+            const pieceMoves = getMoves(r, c, onlyCaptures);
+            for (const move of pieceMoves) {
+              if (move.captures && move.captures.length > 0) {
+                moves.push({ fromRow: r, fromCol: c, ...move });
+              } else if (!onlyCaptures && (!move.captures || move.captures.length === 0)) {
+                moves.push({ fromRow: r, fromCol: c, ...move });
+              }
+            }
+          }
+        }
+      }
+      return moves;
+    }
+    
+    // Проверка, есть ли у игрока обязательные взятия
+    function hasAnyCapture(color) {
+      return getAllMovesForPlayer(color, true).length > 0;
+    }
+    
+    // Выполнение хода
+    function makeMove(fromRow, fromCol, toRow, toCol, captures) {
+      const piece = board[fromRow][fromCol];
+      if (!piece) return false;
+      
+      board[toRow][toCol] = { ...piece };
+      board[fromRow][fromCol] = null;
+      
+      // Снятие побитых фигур
+      if (captures && captures.length > 0) {
+        for (const cap of captures) {
+          if (board[cap.row][cap.col]) {
+            if (board[cap.row][cap.col].color === 'white') whitePieceCount--;
+            else blackPieceCount--;
+            board[cap.row][cap.col] = null;
+          }
+        }
+      }
+      
+      // Превращение в дамку
+      if (!piece.type === 'king' && checkKing(toRow, toCol, board[toRow][toCol])) {
+        board[toRow][toCol].type = 'king';
+      }
+      
+      countPieces();
+      return true;
+    }
+    
+    // AI ход Ноздрёва с возможным жульничеством
+    function aiMove() {
+      if (gameOver) return;
+      if (currentPlayer !== 'black') return;
+      
+      // Ноздрёв иногда жульничает
+      const cheatChance = 0.25;
+      if (Math.random() < cheatChance && !gameOver) {
+        statusEl.innerHTML = "⚡ Ноздрёв пытается сжульничать! ⚡";
+        game.suspicion += 3;
+        // Жульничество: снимаем одну белую шашку
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            if (board[r][c] && board[r][c].color === 'white') {
+              board[r][c] = null;
+              whitePieceCount--;
+              setTimeout(() => {
+                drawBoard();
+                statusEl.innerHTML = "Ноздрёв: 'А ты заметил? Ладно, играем дальше...'";
+                setTimeout(() => makeRealAIMove(), 500);
+              }, 500);
+              return;
+            }
+          }
+        }
+      }
+      
+      makeRealAIMove();
+    }
+    
+    function makeRealAIMove() {
+      if (gameOver || currentPlayer !== 'black') return;
+      
+      const mustCaptureAI = hasAnyCapture('black');
+      let moves = getAllMovesForPlayer('black', mustCaptureAI);
+      
+      if (moves.length === 0) {
+        // Нет ходов - игрок победил
+        gameOver = true;
+        statusEl.innerHTML = "🏆 Ноздрёв не может ходить! Вы победили! 🏆";
+        finishGame(true);
+        return;
+      }
+      
+      // Выбираем лучший ход (приоритет взятию)
+      moves.sort((a, b) => (b.captures?.length || 0) - (a.captures?.length || 0));
+      const move = moves[0];
+      
+      makeMove(move.fromRow, move.fromCol, move.row, move.col, move.captures || []);
+      drawBoard();
+      
+      // Проверка победы
+      countPieces();
+      if (whitePieceCount === 0) {
+        gameOver = true;
+        statusEl.innerHTML = "😭 Ноздрёв выиграл! 😭";
+        finishGame(false);
+        return;
+      }
+      
+      currentPlayer = 'white';
+      updateStatus();
+      
+      // Проверка обязательных взятий для игрока
+      if (hasAnyCapture('white')) {
+        mustCapture = true;
+        statusEl.innerHTML = "⚠️ Обязательно нужно бить! ⚠️";
+      } else {
+        mustCapture = false;
+      }
+      
+      drawBoard();
+    }
+    
+    function updateStatus() {
+      if (!gameOver) {
+        if (currentPlayer === 'white') {
+          statusEl.innerHTML = mustCapture ? "⚠️ Ваш ход (обязательно бить!)" : "🎲 Ваш ход";
+        } else {
+          statusEl.innerHTML = "🤔 Ноздрёв думает...";
+        }
+      }
+    }
+    
+    function drawBoard() {
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          const isDark = (row + col) % 2 === 1;
+          boardCtx.fillStyle = isDark ? '#6e543f' : '#c6a074';
+          boardCtx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+          
+          // Рамка выбранной клетки
+          if (selectedRow === row && selectedCol === col) {
+            boardCtx.strokeStyle = '#fff3c6';
+            boardCtx.lineWidth = 4;
+            boardCtx.strokeRect(col * cellSize + 2, row * cellSize + 2, cellSize - 4, cellSize - 4);
+          }
+          
+          const piece = board[row][col];
+          if (piece) {
+            const centerX = col * cellSize + cellSize / 2;
+            const centerY = row * cellSize + cellSize / 2;
+            const radius = cellSize * 0.35;
+            
+            const gradient = boardCtx.createRadialGradient(centerX - 5, centerY - 5, 5, centerX, centerY, radius);
+            if (piece.color === 'white') {
+              gradient.addColorStop(0, '#f5f0e0');
+              gradient.addColorStop(1, '#d4c9a8');
+            } else {
+              gradient.addColorStop(0, '#4a3628');
+              gradient.addColorStop(1, '#2a1e16');
+            }
+            
+            boardCtx.beginPath();
+            boardCtx.arc(centerX, centerY, radius, 0, TAU);
+            boardCtx.fillStyle = gradient;
+            boardCtx.fill();
+            boardCtx.strokeStyle = piece.color === 'white' ? '#b8a870' : '#1a120e';
+            boardCtx.lineWidth = 1.5;
+            boardCtx.stroke();
+            
+            if (piece.type === 'king') {
+              boardCtx.fillStyle = piece.color === 'white' ? '#c9a45b' : '#e8c88a';
+              boardCtx.font = `bold ${Math.floor(cellSize * 0.35)}px system-ui`;
+              boardCtx.textAlign = 'center';
+              boardCtx.textBaseline = 'middle';
+              boardCtx.fillText('♔', centerX, centerY);
+            }
+          }
+        }
+      }
+    }
+    
+    function handleCellClick(row, col) {
+      if (gameOver || currentPlayer !== 'white') return;
+      
+      const piece = board[row][col];
+      
+      // Если фигура уже выбрана
+      if (selectedRow !== null) {
+        const moves = getAllMovesForPlayer('white', mustCapture);
+        const validMove = moves.find(m => m.fromRow === selectedRow && m.fromCol === selectedCol && m.row === row && m.col === col);
+        
+        if (validMove) {
+          makeMove(selectedRow, selectedCol, row, col, validMove.captures || []);
+          drawBoard();
+          selectedRow = null;
+          
+          countPieces();
+          if (blackPieceCount === 0) {
+            gameOver = true;
+            statusEl.innerHTML = "🏆 Победа! Вы выиграли! 🏆";
+            finishGame(true);
+            return;
+          }
+          
+          currentPlayer = 'black';
+          updateStatus();
+          drawBoard();
+          
+          setTimeout(() => aiMove(), 300);
+        } else {
+          // Если кликнули на другую свою фигуру
+          if (piece && piece.color === 'white') {
+            selectedRow = row;
+            selectedCol = col;
+            drawBoard();
+          } else {
+            selectedRow = null;
+            drawBoard();
+          }
+        }
+      } 
+      // Выбор фигуры
+      else if (piece && piece.color === 'white') {
+        const moves = getAllMovesForPlayer('white', mustCapture);
+        const hasMove = moves.some(m => m.fromRow === row && m.fromCol === col);
+        if (hasMove) {
+          selectedRow = row;
+          selectedCol = col;
+          drawBoard();
+        }
+      }
+    }
+    
+    function finishGame(playerWon) {
+      gameOver = true;
+      game.visited.nozdryov = true;
+      game.nozdryovWon = playerWon;
+      hideOverlay();
+      
+      if (playerWon) {
+        gainSouls('Ноздрёв', 22, 'Выиграл в честной партии шашек.');
+        game.suspicion += 5;
+        showDialogue(
+          'Ноздрёв',
+          'Ну и везёт же тебе, Павел Иванович! Ладно, чёрт с тобой, бери свои мёртвые души. Только в следующий раз я тебя обыграю!',
+          [{label:'Забрать души и уехать', className:'good', onClick: () => { game.dialogueBusy = false; hideDialogue(); } }]
+        );
+      } else {
+        game.suspicion += 12;
+        showDialogue(
+          'Ноздрёв',
+          'Ха-ха-ха! Кто кого? Я же говорил, что выиграю! Никаких душ ты не получишь, Павел Иванович. Давай лучше сыграем в карты или купи мою лошадь!',
+          [{label:'Спасаться бегством', className:'danger', onClick: () => { game.dialogueBusy = false; hideDialogue(); } }]
+        );
+      }
+      updateHUD();
+    }
+    
+    // Обработчики кликов
+    boardCanvas.addEventListener('click', (e) => {
+      const rect = boardCanvas.getBoundingClientRect();
+      const scale = boardSize / rect.width;
+      const x = (e.clientX - rect.left) * scale;
+      const y = (e.clientY - rect.top) * scale;
+      const col = Math.floor(x / cellSize);
+      const row = Math.floor(y / cellSize);
+      if (row >= 0 && row < 8 && col >= 0 && col < 8) {
+        handleCellClick(row, col);
+      }
+    });
+    
+    boardCanvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const rect = boardCanvas.getBoundingClientRect();
+      const scale = boardSize / rect.width;
+      const touch = e.touches[0];
+      const x = (touch.clientX - rect.left) * scale;
+      const y = (touch.clientY - rect.top) * scale;
+      const col = Math.floor(x / cellSize);
+      const row = Math.floor(y / cellSize);
+      if (row >= 0 && row < 8 && col >= 0 && col < 8) {
+        handleCellClick(row, col);
+      }
+    });
+    
+    document.getElementById('checkersReset').onclick = () => {
+      initBoard();
+      drawBoard();
+    };
+    
+    document.getElementById('checkersExit').onclick = () => {
+      finishGame(false);
+    };
+    
+    initBoard();
+    drawBoard();
+  }
+
+  function triggerSobakevich(){
+    game.dialogueBusy = true;
+    showDialogue(
+      'Повествователь',
+      'Дом Собакевича тяжёл, прочен, грубоват, будто вырублен из цельного дуба. Сам хозяин таков же: каждое слово как полено. Здесь трудно льстить — здесь надо считать.',
+      [{label:'Приступить к делу', className:'accent', onClick: openSobakevichMini}]
+    );
+  }
+
+  function openSobakevichMini(){
+    const peasants = [
+      {name:'Каретник Михеев', val:5, text:'мастеровой, крепкий'},
+      {name:'Степан Пробка', val:4, text:'плотник, могуч'},
+      {name:'Максим Телятников', val:3, text:'сапожник, толков'},
+      {name:'Еремей Сорокоплёхин', val:5, text:'богатырь, работник'},
+      {name:'Пётр Савельев Неуважай-Корыто', val:2, text:'имя длинное, толку меньше'},
+      {name:'Фёдор Долопаев', val:4, text:'весомый мужик'}
+    ];
+    let picked = new Set();
+    hideOverlay();
+    hideDialogue();
+    showOverlay(`
+      <h2>Собакевич — мини-игра «Крепость товара»</h2>
+      <p>Выберите <b>четырёх</b> наиболее «крепких» покойников.</p>
+      <div class="miniArea">
+        <div id="sobaList" class="list"></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="smallBtn accent" id="sobaDone">Закончить сделку</button>
+      </div>
+    `);
+    const list = document.getElementById('sobaList');
+    function render(){
+      list.innerHTML = peasants.map((p,i)=>`
+        <div class="line">
+          <span><b>${p.name}</b> — ${p.text}</span>
+          <button class="smallBtn ${picked.has(i)?'accent':''}" data-i="${i}">${picked.has(i)?'Выбрано':'Выбрать'}</button>
+        </div>
+      `).join('');
+      list.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{
+        const i=+b.dataset.i;
+        if(picked.has(i)) picked.delete(i);
+        else if(picked.size<4) picked.add(i);
+        render();
+      });
+    }
+    render();
+    document.getElementById('sobaDone').onclick = ()=>{
+      const sum = [...picked].reduce((s,i)=>s+peasants[i].val,0);
+      hideOverlay();
+      game.visited.sobakevich = true;
+      if(sum>=17){
+        gainSouls('Собакевич', 31, 'Тяжёлый, но выгодный торг.');
+        game.suspicion += 5;
+        showDialogue('Собакевич','У меня всё народ был такой... Ну, берите.',[{label:'Подписать купчую', className:'good', onClick: ()=>{game.dialogueBusy=false; hideDialogue();}}]);
+      } else if(sum>=12){
+        gainSouls('Собакевич', 22, 'Дело сделано.');
+        game.suspicion += 8;
+        showDialogue('Собакевич','Что ж, записывайте.',[{label:'Уехать', className:'accent', onClick: ()=>{game.dialogueBusy=false; hideDialogue();}}]);
+      } else {
+        gainSouls('Собакевич', 12, 'Взято мало.');
+        game.suspicion += 12;
+        showDialogue('Собакевич','Глаз не приучен.',[{label:'Удалиться', className:'danger', onClick: ()=>{game.dialogueBusy=false; hideDialogue();}}]);
+      }
+      updateHUD();
+    };
+  }
+
+  function triggerPlyushkin(){
+    game.dialogueBusy = true;
+    showDialogue(
+      'Повествователь',
+      'У Плюшкина не столько имение, сколько кладбище вещей. Всё ссохлось, запылилось, оборвалось. Хозяин сам похож на старый лоскут.',
+      [{label:'Разобрать завалы', className:'accent', onClick: openPlyushkinMini}]
+    );
+  }
+
+  function openPlyushkinMini(){
+    hideOverlay();
+    hideDialogue();
+    showOverlay(`
+      <h2>Плюшкин — найдите 6 бумаг</h2>
+      <div class="miniArea center">
+        <p id="plyuInfo">Найдено: 0/6</p>
+        <canvas id="junk" width="600" height="400" style="max-width:100%;background:#14100e;border-radius:12px;height:auto"></canvas>
+        <button class="smallBtn" id="plyuRestart">Перемешать</button>
+      </div>
+    `);
+    const c = document.getElementById('junk');
+    const x = c.getContext('2d');
+    const info = document.getElementById('plyuInfo');
+    let items = [], found = 0, mistakes = 0;
+    const types = ['paper','paper','book','list','rag','boot','bone','bottle'];
+    
+    function gen(){
+      items = [];
+      found = 0; mistakes = 0;
+      for(let i=0;i<24;i++){
+        items.push({
+          x: rand(550,50), y: rand(350,50), w: rand(70,30), h: rand(45,20),
+          type: choice(types), hit: false
+        });
+      }
+      draw();
+      info.textContent = `Найдено: ${found}/6`;
+    }
+    
+    function draw(){
+      x.clearRect(0,0,c.width,c.height);
+      items.forEach(it=>{
+        if(it.hit) return;
+        x.fillStyle = it.type==='paper'||it.type==='list'||it.type==='book' ? '#cab490' : '#5c5147';
+        x.fillRect(it.x-it.w/2, it.y-it.h/2, it.w, it.h);
+      });
+    }
+    
+    const handleTap = (clientX, clientY) => {
+      const rect = c.getBoundingClientRect();
+      const scaleX = c.width / rect.width;
+      const scaleY = c.height / rect.height;
+      const mx = (clientX - rect.left) * scaleX;
+      const my = (clientY - rect.top) * scaleY;
+      for(let it of items){
+        if(it.hit) continue;
+        if(mx > it.x-it.w/2 && mx < it.x+it.w/2 && my > it.y-it.h/2 && my < it.y+it.h/2){
+          if(it.type==='paper' || it.type==='list' || it.type==='book'){
+            it.hit = true;
+            found++;
+            info.textContent = `Найдено: ${found}/6`;
+            if(found>=6){
+              hideOverlay();
+              game.visited.plyushkin = true;
+              const count = Math.max(18, 42 - mistakes*3);
+              gainSouls('Плюшкин', count, 'Найдены бумаги.');
+              game.suspicion += 4 + mistakes;
+              showDialogue('Плюшкин','Бери, коли надобно.',[{label:'Собрать', className:'good', onClick: ()=>{game.dialogueBusy=false; hideDialogue();}}]);
+              updateHUD();
+            }
+          } else {
+            mistakes++;
+            info.textContent = `Найдено: ${found}/6 • Ошибка!`;
+          }
+          draw();
+          return;
+        }
+      }
+    };
+    
+    c.addEventListener('click', e => handleTap(e.clientX, e.clientY));
+    c.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      handleTap(touch.clientX, touch.clientY);
+    });
+    
+    document.getElementById('plyuRestart').onclick = gen;
+    gen();
+  }
+
+  function openChamberMini(){
+    hideOverlay();
+    hideDialogue();
+    showOverlay(`
+      <h2>Гражданская палата — порядок бумаг</h2>
+      <div class="miniArea"><div id="chamberOrder" class="row"></div><p id="chamberMsg"></p></div>
+      <button class="smallBtn accent" id="chSubmit">Подать</button>
+    `);
+    const correct = ['Подать прошение','Показать списки','Заверить подписи','Уплатить пошлины','Поставить печать'];
+    const all = [...correct];
+    let seq = [];
+    function render(){
+      const orderEl = document.getElementById('chamberOrder');
+      orderEl.innerHTML = all.map((item,i)=>`<button class="smallBtn" data-i="${i}">${item}</button>`).join('');
+      orderEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+        if(seq.length<5) seq.push(all[+b.dataset.i]);
+        document.getElementById('chamberMsg').textContent = 'Порядок: ' + seq.join(' → ');
+      });
+    }
+    render();
+    document.getElementById('chSubmit').onclick = ()=>{
+      hideOverlay();
+      const ok = JSON.stringify(seq)===JSON.stringify(correct);
+      game.registryDone = true;
+      if(ok){
+        game.suspicion += 7;
+        showDialogue('Повествователь','Бумаги оформлены гладко.', [{label:'К губернатору', className:'accent', onClick:()=>{game.dialogueBusy=false; hideDialogue();}}]);
+      } else {
+        game.suspicion += 16;
+        showDialogue('Повествователь','Путаница, но бумаги провели.', [{label:'Покинуть', onClick:()=>{game.dialogueBusy=false; hideDialogue();}}]);
+      }
+      updateHUD();
+    };
+  }
+
+  function openBallScene(){
+    hideOverlay();
+    hideDialogue();
+    showOverlay(`
+      <h2>Бал — реагируйте на ситуации</h2>
+      <div id="ballStep"></div>
+      <div class="meter"><span id="rumorBar"></span></div>
+    `);
+    let rumor = 20;
+    let step = 0;
+    const situations = [
+      {q:'Дамы шепчутся...', a:[{t:'Быть учтивее', d:-8},{t:'Хвастаться', d:15},{t:'Не замечать', d:4}]},
+      {q:'Ноздрёв кричит о душах', a:[{t:'Шуткой отвести', d:-3},{t:'Вспылить', d:18},{t:'Удалиться', d:6}]},
+      {q:'Чиновники сопоставляют бумаги', a:[{t:'Сослаться на нужды', d:7},{t:'Говорить уверенно', d:-5},{t:'Сложные объяснения', d:16}]}
+    ];
+    function renderStep(){
+      document.getElementById('rumorBar').style.width = clamp(rumor,0,100)+'%';
+      if(step>=situations.length){
+        hideOverlay();
+        game.ballDone = true;
+        game.suspicion = clamp(game.suspicion + rumor/2, 0, 100);
+        showDialogue('Повествователь','Бал окончен.', [{label:'Готовиться к отъезду', className:'accent', onClick: startEscape}]);
+        updateHUD();
+        return;
+      }
+      const s = situations[step];
+      const stepEl = document.getElementById('ballStep');
+      stepEl.innerHTML = `<h3>Ситуация ${step+1}</h3><p>${s.q}</p><div class="row">${s.a.map((x,i)=>`<button class="smallBtn" data-i="${i}">${x.t}</button>`).join('')}</div>`;
+      stepEl.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{
+        rumor = clamp(rumor + s.a[+b.dataset.i].d, 0, 100);
+        step++;
+        renderStep();
+      });
+    }
+    renderStep();
+  }
+
+  function startEscape(){
+    game.scene = 'escape';
+    game.chase = true;
+    game.carriage.x = 220;
+    game.carriage.y = 380;
+    game.dialogueBusy = false;
+    hideDialogue();
+    updateHUD();
+  }
+
+  let patrols = [];
+  function resetPatrols(){
+    patrols = Array.from({length:6}, ()=>({
+      x: rand(W-100,100), y: rand(H-100,100), 
+      vx: rand(60,-60), vy: rand(60,-60), r: 18
+    }));
+  }
+
+  function updateEscape(dt){
+    drawBackground();
+    drawMapDecor();
+    
+    ctx.fillStyle = 'rgba(201,164,91,.18)';
+    ctx.fillRect(W-120,0,120,H);
+    ctx.fillStyle = '#f4deb4';
+    ctx.font = '24px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Выезд', W-60, 60);
+    
+    let vx=0, vy=0;
+    if(touchDir.up) vy-=1;
+    if(touchDir.down) vy+=1;
+    if(touchDir.left) vx-=1;
+    if(touchDir.right) vx+=1;
+    
+    if(vx||vy){
+      const len = Math.hypot(vx,vy);
+      vx/=len; vy/=len;
+      game.carriage.x += vx * 200 * dt;
+      game.carriage.y += vy * 200 * dt;
+      game.carriage.angle = Math.atan2(vy,vx);
+    }
+    game.carriage.x = clamp(game.carriage.x, 20, W-20);
+    game.carriage.y = clamp(game.carriage.y, 20, H-20);
+    
+    if(patrols.length === 0) resetPatrols();
+    patrols.forEach(p=>{
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      if(p.x<30||p.x>W-30) p.vx*=-1;
+      if(p.y<30||p.y>H-30) p.vy*=-1;
+      ctx.fillStyle = '#8f443a';
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,TAU); ctx.fill();
+      if(dist(p.x,p.y,game.carriage.x,game.carriage.y) < p.r+15){
+        game.suspicion += 15*dt;
+      }
+    });
+    
+    drawCarriage(game.carriage.x, game.carriage.y, game.carriage.angle);
+    
+    if(game.carriage.x > W-100) finishGame(game.suspicion<85?'escape':'bitter');
+    if(game.suspicion>=100) finishGame('caught');
+    updateHUD();
+  }
+
+  function finishGame(type){
+    game.scene = 'ending';
+    let title='', body='';
+    if(type==='escape'){ title='Отъезд'; body='Бричка выкатилась за пределы губернии.'; }
+    else if(type==='bitter'){ title='Почти спасение'; body='Слухи обогнали Чичикова.'; }
+    else{ title='Разоблачение'; body='Чичикова захватили.'; }
+    hideDialogue();
+    showDialogue(title, body, [
+      {label:'Сыграть снова', className:'accent', onClick: startIntro},
+      {label:'В меню', onClick: startTitle}
+    ]);
+  }
+
+  function showSummary(){
+    const ledger = game.soulLedger.map(x=>`<div class="card"><strong>${x.owner}</strong><br>Душ: ${x.count}<br><span style="color:var(--muted)">${x.note}</span></div>`).join('');
+    showOverlay(`
+      <h2>Итоги поездки Чичикова</h2>
+      <div class="grid2">
+        <div class="card"><strong>Всего душ</strong><br>${game.souls}</div>
+        <div class="card"><strong>Подозрение</strong><br>${Math.round(game.suspicion)}/100</div>
+        <div class="card"><strong>Бумаги</strong><br>${game.registryDone ? 'Оформлены' : 'Не оформлены'}</div>
+        <div class="card"><strong>Бал</strong><br>${game.ballDone ? 'Посещён' : 'Нет'}</div>
+      </div>
+      <div class="inventory">${ledger || '<div class="card">Сделок не было.</div>'}</div>
+      <button class="smallBtn accent" onclick="document.getElementById('overlay').style.display='none'">Закрыть</button>
+    `);
+  }
+
+  function renderTitle(){
+    drawBackground();
+    drawMapDecor();
+    ctx.fillStyle = 'rgba(0,0,0,.4)';
+    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = '#f6ead7';
+    ctx.font = '700 62px Georgia';
+    ctx.textAlign = 'center';
+    ctx.fillText('МЁРТВЫЕ ДУШИ 2.0', W/2, 200);
+    drawCarriage(280 + Math.sin(game.time)*20, 500, 0);
+  }
+
+  function renderIntro(){
+    drawBackground();
+    drawMapDecor();
+    drawCarriage(260, 520, 0);
+  }
+
+  function renderEnding(){
+    drawBackground();
+    drawMapDecor();
+    drawCarriage(900, 400, 0);
+  }
+
+  function renderWorldScene(){
+    drawWorld();
+    ctx.fillStyle = 'rgba(20,15,12,.7)';
+    ctx.fillRect(10, H-70, 400, 50);
+    ctx.fillStyle = '#f6ead7';
+    ctx.font = '14px system-ui';
+    ctx.fillText('Подъезжайте к точкам на карте', 25, H-35);
+  }
+
+  function drawDust(){
+    for(let i=0;i<15;i++){
+      const x = ((i*83 + game.time*20) % (W+100)) - 50;
+      const y = (i*50 % H) + Math.sin(game.time+i)*15;
+      ctx.globalAlpha = .04;
+      ctx.fillStyle = '#f0d8a0';
+      ctx.beginPath(); ctx.arc(x,y,3,0,TAU); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  let lastTime = 0;
+  function tick(ts){
+    requestAnimationFrame(tick);
+    const dt = Math.min(0.033, (ts - (lastTime||ts))/1000);
+    lastTime = ts;
+    game.time = ts/1000;
+    game.time2 += dt;
+    
+    ctx.clearRect(0,0,W,H);
+    
+    if(game.scene === 'title') renderTitle();
+    else if(game.scene === 'intro') renderIntro();
+    else if(game.scene === 'world') { updateWorld(dt); renderWorldScene(); }
+    else if(game.scene === 'escape') updateEscape(dt);
+    else if(game.scene === 'ending') renderEnding();
+    
+    drawDust();
+  }
+  
+  startTitle();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
